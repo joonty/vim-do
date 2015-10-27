@@ -20,6 +20,18 @@ Oops, that last command is gonna take a while...
 
 But don't worry, it's asynchronous! The output will pop up in a new vim buffer when the command finishes running.
 
+### Replacement for :make
+
+If you're used to running `:make` and using `set makeprg=some\ command`, then you can use `:Do` as a replacement. Running `:Do` without any arguments will automatically run whichever command has been set by `makeprg`.
+
+```vim
+:Do
+" Runs make
+:set makeprg=rake
+:Do
+" Runs rake
+```
+
 ## Install
 
 **Requires Vim compiled with Python 2.4+ support**
