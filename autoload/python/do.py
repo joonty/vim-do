@@ -24,30 +24,15 @@ class CommandResult:
     def name(self):
         return "DoOutput(%s)" % self.pid
 
-class AsyncExecute(threading.Thread):
-    def __init__(self, command, output_q, message_q):
-        self.__command = command
-        self.__output_q = output_q
-        self.__message_q = message_q
-        threading.Thread.__init__(self)
-
-    def run(self):
-        t1 = time.time()
-        process = subprocess.Popen(self.__command, shell=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = process.communicate()
-        t2 = time.time()
-        self.__output_q.put_nowait(CommandResult(process.pid, self.__command,
-            process.returncode, out, err, round((t2 - t1) * 1000)))
-
 
 class CommandResultRenderer:
     def __init__(self, result):
         self.__result = result
+        self.__open_cmd = vim.eval('do#get("do_new_buffer_prefix")')
+        self.__open_cmd += " %snew" % vim.eval('do#get("do_new_buffer_size")')
 
     def render(self):
-        open_cmd = "new"
-        vim.command('silent %s %s' %(open_cmd, self.__result.name()))
+        vim.command('silent %s %s' %(self.__open_cmd, self.__result.name()))
         vim.command("setlocal syntax=do_output buftype=nofile modifiable "+ \
                 "winfixheight winfixwidth ")
         buffer = vim.current.buffer
@@ -87,16 +72,28 @@ class CommandResultRenderer:
             unit = "ms"
         return "{:,}".format(time) + unit
 
+class AsyncExecute(threading.Thread):
+    def __init__(self, command, output_q):
+        self.__command = command
+        self.__output_q = output_q
+        threading.Thread.__init__(self)
+
+    def run(self):
+        t1 = time.time()
+        process = subprocess.Popen(self.__command, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate()
+        t2 = time.time()
+        self.__output_q.put_nowait(CommandResult(process.pid, self.__command,
+            process.returncode, out, err, round((t2 - t1) * 1000)))
+
 class CommandPool:
     def __init__(self):
         self.__threads = []
         self.__output_q = Queue.Queue(0)
-        self.__message_q = Queue.Queue(0)
-        self.__au_assigned = False
 
     def execute(self, command):
-        thread = AsyncExecute(command, self.__output_q,
-                self.__message_q)
+        thread = AsyncExecute(command, self.__output_q)
         thread.start()
         self.__threads.append(thread)
 

@@ -10,7 +10,8 @@ let s:previous_command = ""
 
 " Configuration vars
 let s:do_update_time = 1000
-let s:do_max_buffers = 1 " How many windows can we use?
+let s:do_new_buffer_prefix = ""
+let s:do_new_buffer_size = ""
 
 " Load Python script
 if filereadable($VIMRUNTIME."/plugin/python/do.py")
@@ -34,11 +35,11 @@ python do_async = Do()
 ""
 " Fetch a scoped value of an option
 "
-" Determine a value of an option based on user configuration or pre-configured 
-" defaults. A user can configure an option by defining it as a buffer variable 
-" or as a global (buffer vars override globals). Default value can be provided 
-" by defining a script variable for the whole file or a function local (local 
-" vars override script vars). When all else fails, falls back the supplied 
+" Determine a value of an option based on user configuration or pre-configured
+" defaults. A user can configure an option by defining it as a buffer variable
+" or as a global (buffer vars override globals). Default value can be provided
+" by defining a script variable for the whole file or a function local (local
+" vars override script vars). When all else fails, falls back the supplied
 " default value,  if one is supplied.
 "
 " @param string option Scope-less name of the option
@@ -61,7 +62,7 @@ endfunction
 ""
 " Show user an error message
 "
-" Pre-format supplied message as an Error and display it to the user. All 
+" Pre-format supplied message as an Error and display it to the user. All
 " messages are saved to message-history and are accessible via `:messages`.
 "
 " @param string message A message to be displayed to the user
