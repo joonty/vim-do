@@ -55,13 +55,13 @@ class CommandResultRenderer:
         if self.__result.stdout:
             buffer.append(self.esc(self.__result.stdout))
         if self.__result.stderr:
-            buffer.append(self.wrap(self.esc(self.__result.stderr), "`"))
+            buffer.append(self.prepend(self.esc(self.__result.stderr), "E> "))
 
     def esc(self, string):
         return chomp(str(string)).split('\n')
 
-    def wrap(self, string, wrap_with):
-        return map(lambda x: "%s%s%s" %(wrap_with, x, wrap_with), string)
+    def prepend(self, string, prepend_with):
+        return map(lambda x: "%s%s" %(prepend_with, x), string)
 
     def header(self):
         values = (self.__result.command,
@@ -99,48 +99,55 @@ class CommandPool:
                 self.__message_q)
         thread.start()
         self.__threads.append(thread)
-        time.sleep(1)
-        self.check()
-        self._assign_autocommands()
-        title = "-" * len(command)
 
-    def check(self):
-        try:
-            for message in iter(self.__message_q.get_nowait, None):
-                print message
-        except Queue.Empty:
-            pass
+    def any_running(self):
+        return len(self.__threads) == 0
+
+    def get_results(self):
+        results = []
 
         if self.__output_q.empty():
-            return
+            return results
 
         try:
-            for output in iter(self.__output_q.get_nowait, None):
-                CommandResultRenderer(output).render()
+            for result in iter(self.__output_q.get_nowait, None):
+                results.append(result)
         except Queue.Empty:
             pass
 
-        self.__threads = [t for t in self.__threads if t.is_alive()]
-        if len(self.__threads) == 0:
-            self._unassign_autocommands()
+        return results
 
-    def _assign_autocommands(self):
+    def cleanup(self):
+        self.__threads = [t for t in self.__threads if t.is_alive()]
+
+class Do:
+    def __init__(self):
+        self.__command_pool = CommandPool()
+        self.__au_assigned = False
+        self.__results = []
+
+    def execute(self, command):
+        self.__command_pool.execute(command)
+        self.__assign_autocommands()
+        self.check()
+
+    def check(self):
+        results = self.__command_pool.get_results()
+        if results:
+            for result in results:
+                CommandResultRenderer(result).render()
+
+
+        if self.__command_pool.any_running():
+            self.__unassign_autocommands()
+
+    def __assign_autocommands(self):
         if self.__au_assigned:
             return
-        vim.command('au CursorHold * python do_async.check()')
-        vim.command('au CursorHoldI * python do_async.check()')
-        vim.command('au CursorMoved * python do_async.check()')
-        vim.command('au CursorMovedI * python do_async.check()')
-        vim.command('au FocusGained * python do_async.check()')
-        vim.command('au FocusLost * python do_async.check()')
+        vim.command('call do#AssignAutocommands()')
         self.__au_assigned = True
 
-    def _unassign_autocommands(self):
-        vim.command('au! CursorHold *')
-        vim.command('au! CursorHoldI *')
-        vim.command('au! CursorMoved *')
-        vim.command('au! CursorMovedI *')
-        vim.command('au! FocusGained *')
-        vim.command('au! FocusLost *')
+    def __unassign_autocommands(self):
+        vim.command('call do#UnassignAutocommands()')
         self.__au_assigned = False
 

@@ -19,3 +19,6 @@ if !has("python")
 endif
 
 command! -nargs=* Do call do#Execute(<q-args>)
+command! Redo call do#ExecuteAgain()
+command! Doing call do#ShowCommands()
+command! Done call do#ShowCommands()

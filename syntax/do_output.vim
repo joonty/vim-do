@@ -9,7 +9,7 @@ endif
 
 syn region doCommandHeader start=+^=+ end=+=$+
 syn match doCommandTitle '\zs\[\(command\|status\|time\|pid\)\]\ze'
-syn region doCommandStderr start=+^`+ end=+`$+
+syn region doCommandStderr start=+E>+ end=+$+
 
 hi def link doCommandHeader Type
 hi def link doCommandTitle Title
