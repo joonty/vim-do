@@ -20,5 +20,7 @@ endif
 
 command! -nargs=* Do call do#Execute(<q-args>)
 command! Redo call do#ExecuteAgain()
-command! Doing call do#ShowCommands()
-command! Done call do#ShowCommands()
+command! Doing call do#ToggleCommandWindow()
+command! Done call do#ToggleCommandWindow()
+
+" Looking for the rest? Check the autoload directory :D

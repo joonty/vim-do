@@ -31,6 +31,7 @@ endif
 
 " Initialize do
 python do_async = Do()
+autocmd VimLeavePre * python do_async.stop()
 
 ""
 " Fetch a scoped value of an option
@@ -113,11 +114,25 @@ _EOF_
     endif
 endfunction
 
+function! do#EnableLogger(file_path)
+python <<_EOF_
+do_async.enable_logger(vim.eval("a:file_path"))
+_EOF_
+endfunction
+
 ""
 " Show a window detailing the running and completed commands.
 "
-function! do#ShowCommands()
+function! do#ToggleCommandWindow()
+    python do_async.toggle_command_window()
+endfunction
 
+function! do#MarkCommandWindowAsClosed()
+    python do_async.mark_command_window_as_closed()
+endfunction
+
+function! do#MarkProcessWindowAsClosed()
+    python do_async.mark_process_window_as_closed()
 endfunction
 
 ""
@@ -132,9 +147,9 @@ endfunction
 function! do#AssignAutocommands()
     augroup vim_do
         au CursorHold * python do_async.check()
-        au CursorHoldI * python do_async.check()
-        au CursorMoved * python do_async.check()
-        au CursorMovedI * python do_async.check()
+        "au CursorHoldI * python do_async.check()
+        "au CursorMoved * python do_async.check()
+        "au CursorMovedI * python do_async.check()
         au FocusGained * python do_async.check()
         au FocusLost * python do_async.check()
     augroup END

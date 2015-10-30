@@ -1,150 +1,163 @@
-import Queue
-import threading
-import subprocess
-import vim
-import shlex
 import os
+import inspect
+import sys
+directory = os.path.dirname(inspect.getfile(inspect.currentframe()))
+sys.path.append(directory)
+
+import rendering
+import async
+import window
+import vim
 import time
-
-def chomp(string):
-    sep_pos = -len(os.linesep)
-    if string[sep_pos:] == os.linesep:
-            string = string[:sep_pos]
-    return string
-
-class CommandResult:
-    def __init__(self, pid, command, status, stdout, stderr, time_ms):
-        self.pid = str(pid)
-        self.command = command
-        self.status = str(status)
-        self.stdout = stdout
-        self.stderr = stderr
-        self.time_ms = time_ms
-
-    def name(self):
-        return "DoOutput(%s)" % self.pid
-
-
-class CommandResultRenderer:
-    def __init__(self, result):
-        self.__result = result
-        self.__open_cmd = vim.eval('do#get("do_new_buffer_prefix")')
-        self.__open_cmd += " %snew" % vim.eval('do#get("do_new_buffer_size")')
-
-    def render(self):
-        vim.command('silent %s %s' %(self.__open_cmd, self.__result.name()))
-        vim.command("setlocal syntax=do_output buftype=nofile modifiable "+ \
-                "winfixheight winfixwidth ")
-        buffer = vim.current.buffer
-        buffer[:] = self.esc(self.header())
-        if self.__result.stdout:
-            buffer.append(self.esc(self.__result.stdout))
-        if self.__result.stderr:
-            buffer.append(self.prepend(self.esc(self.__result.stderr), "E> "))
-
-    def esc(self, string):
-        return chomp(str(string)).split('\n')
-
-    def prepend(self, string, prepend_with):
-        return map(lambda x: "%s%s" %(prepend_with, x), string)
-
-    def header(self):
-        values = (self.__result.command,
-                self.__result.status,
-                self.__formatted_time(),
-                self.__result.pid)
-        max_length = max(map(len, values)) + 12
-
-        title = "=" * max_length + "\n"
-        title += " [command] %s\n" % values[0]
-        title += "  [status] %s\n" % values[1]
-        title += "    [time] %s\n" % values[2]
-        title += "     [pid] %s\n" % values[3]
-        title += "=" * max_length
-        return title
-
-    def __formatted_time(self):
-        if self.__result.time_ms > 1000.0:
-            time = round(self.__result.time_ms / 1000.0, 2)
-            unit = "s"
-        else:
-            time = self.__result.time_ms
-            unit = "ms"
-        return "{:,}".format(time) + unit
-
-class AsyncExecute(threading.Thread):
-    def __init__(self, command, output_q):
-        self.__command = command
-        self.__output_q = output_q
-        threading.Thread.__init__(self)
-
-    def run(self):
-        t1 = time.time()
-        process = subprocess.Popen(self.__command, shell=True,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = process.communicate()
-        t2 = time.time()
-        self.__output_q.put_nowait(CommandResult(process.pid, self.__command,
-            process.returncode, out, err, round((t2 - t1) * 1000)))
-
-class CommandPool:
-    def __init__(self):
-        self.__threads = []
-        self.__output_q = Queue.Queue(0)
-
-    def execute(self, command):
-        thread = AsyncExecute(command, self.__output_q)
-        thread.start()
-        self.__threads.append(thread)
-
-    def any_running(self):
-        return len(self.__threads) == 0
-
-    def get_results(self):
-        results = []
-
-        if self.__output_q.empty():
-            return results
-
-        try:
-            for result in iter(self.__output_q.get_nowait, None):
-                results.append(result)
-        except Queue.Empty:
-            pass
-
-        return results
-
-    def cleanup(self):
-        self.__threads = [t for t in self.__threads if t.is_alive()]
+import string
+import logger
 
 class Do:
     def __init__(self):
-        self.__command_pool = CommandPool()
+        self.__process_pool = async.ProcessPool()
+        self.__processes = ProcessCollection()
+        self.__process_renderer = rendering.ProcessRenderer()
         self.__au_assigned = False
-        self.__results = []
 
-    def execute(self, command):
-        self.__command_pool.execute(command)
+    def execute(self, cmd):
+        pid = self.__process_pool.execute(cmd)
+        logger.log("Started command with pid %i: %s" %(pid, cmd))
+        process = self.__processes.add(cmd, pid)
+        self.__process_renderer.add_process(process)
+
         self.__assign_autocommands()
         self.check()
 
+    def __del__(self):
+        self.stop()
+
+    def toggle_command_window(self):
+        self.__process_renderer.toggle_command_window()
+
+    def mark_command_window_as_closed(self):
+        self.__process_renderer.destroy_command_window()
+
+    def mark_process_window_as_closed(self):
+        self.__process_renderer.destroy_process_window()
+
     def check(self):
-        results = self.__command_pool.get_results()
-        if results:
-            for result in results:
-                CommandResultRenderer(result).render()
+        logger.log("Checking background threads output")
+        outputs = self.__process_pool.get_outputs()
+        changed_processes = set()
+        for output in outputs:
+            if output[1] is not None:
+                logger.log("Process %s has finished with exit status %s"
+                        %(output[0], output[1]))
+            process = self.__processes.update(*output)
+            changed_processes.add(process)
 
+        for process in changed_processes:
+            self.__process_renderer.update_process(process)
 
-        if self.__command_pool.any_running():
+        self.__process_pool.cleanup()
+        if self.__processes.all_finished():
+            logger.log("All background threads completed")
             self.__unassign_autocommands()
+
+    def enable_logger(self, path):
+        logger.Log.set_logger(logger.FileLogger(logger.Logger.DEBUG, path))
+
+    def stop(self):
+        self.__process_pool.stop()
 
     def __assign_autocommands(self):
         if self.__au_assigned:
             return
+        logger.log("Assigning autocommands for background checking")
         vim.command('call do#AssignAutocommands()')
         self.__au_assigned = True
 
     def __unassign_autocommands(self):
+        logger.log("Unassigning autocommands")
         vim.command('call do#UnassignAutocommands()')
         self.__au_assigned = False
+
+class ProcessCollection:
+    def __init__(self):
+        self.__processes = {}
+
+    def add(self, command, pid):
+        process = Process(command, pid)
+        self.__processes[pid] = process
+        return process
+
+    def update(self, pid, exit_status, stdout, stderr):
+        process = self.__processes[pid]
+        if process is not None:
+            if exit_status:
+                process.mark_as_complete(exit_status)
+            if stdout or stderr:
+                process.output().append(stdout, stderr)
+        return process
+
+    def all_finished(self):
+        return len(filter(lambda p: p.is_running(), self.__processes.values())) == 0
+
+class Process:
+    def __init__(self, command, pid):
+        self.__command = command
+        self.__pid = str(pid)
+        self.__start_time = time.time()
+        self.__output = Output()
+        self.__exit_code = None
+        self.__time = None
+
+    def mark_as_complete(self, exit_code):
+        self.__exit_code = str(exit_code)
+        self.__time = round((time.time() - self.__start_time) * 1000)
+
+    def has_finished(self):
+        return self.__exit_code is not None
+
+    def is_running(self):
+        return not self.has_finished()
+
+    def get_pid(self):
+        return self.__pid
+
+    def get_status(self):
+        if self.__exit_code is None:
+            return "Running"
+        else:
+            return "exited <%s>" % self.__exit_code
+
+    def get_command(self):
+        return self.__command
+
+    def get_time(self):
+        if self.__time:
+            return self.__time
+        else:
+            return round((time.time() - self.__start_time) * 1000)
+
+    def output(self):
+        return self.__output
+
+    def name(self):
+        return "DoOutput(%s)" % self.__pid
+
+
+class Output:
+    def __init__(self):
+        self.__output = []
+
+    def all(self):
+        return self.__output
+
+    def __len__(self):
+        return len(self.__output)
+
+    def from_line(self, line):
+        return self.__output[line:]
+
+    def append(self, stdout, stderr):
+        if stdout is not None:
+            self.__output.append(stdout)
+        if stderr is not None:
+            self.__output.append("E> %s" % stderr)
 
