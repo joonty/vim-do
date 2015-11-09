@@ -4,6 +4,7 @@ import subprocess
 import shlex
 import select
 import logger
+import os
 
 class AsyncProcessReader(threading.Thread):
     def __init__(self, process, output_q):
@@ -14,10 +15,13 @@ class AsyncProcessReader(threading.Thread):
     def run(self):
         pid = self.__process.pid
 
+        logger.log("Checking output")
         for (stdout, stderr) in self._readfds():
             self.__output_q.put_nowait((pid, None, stdout, stderr))
+        logger.log("Collected all output")
 
         self.__process.wait()
+        logger.log("Finished with %i" % self.__process.returncode)
         self.__output_q.put_nowait((pid, self.__process.returncode, None, None))
 
     def _readfds(self):

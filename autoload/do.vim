@@ -3,15 +3,17 @@ if exists("g:do_loaded") || &cp
     finish
 endif
 
-" Vars used by this script
+" Vars used by this script, don't change
 let g:do_loaded = 1
 let s:existing_update_time = &updatetime
 let s:previous_command = ""
 
 " Configuration vars
 let s:do_update_time = 1000
-let s:do_new_buffer_prefix = ""
+let s:do_check_interval = 1000
+let s:do_new_buffer_command_prefix = ""
 let s:do_new_buffer_size = ""
+let s:do_refresh_key = "<C-B>"
 
 " Load Python script
 if filereadable($VIMRUNTIME."/plugin/python/do.py")
@@ -28,10 +30,6 @@ else
     call confirm('vdebug.vim: Unable to find do.py. Place it in either your home vim directory or in the Vim runtime directory.', 'OK')
   endif
 endif
-
-" Initialize do
-python do_async = Do()
-autocmd VimLeavePre * python do_async.stop()
 
 ""
 " Fetch a scoped value of an option
@@ -114,10 +112,26 @@ _EOF_
     endif
 endfunction
 
+function! do#ExecuteSelection()
+    let l:command = s:getVisualSelection()
+    call do#Execute(l:command)
+endfunction
+
 function! do#EnableLogger(file_path)
 python <<_EOF_
 do_async.enable_logger(vim.eval("a:file_path"))
 _EOF_
+endfunction
+
+" Thanks to http://stackoverflow.com/a/6271254/1087866
+function! s:getVisualSelection()
+  " Why is this not a built-in Vim script function?!
+  let [lnum1, col1] = getpos("'<")[1:2]
+  let [lnum2, col2] = getpos("'>")[1:2]
+  let lines = getline(lnum1, lnum2)
+  let lines[-1] = lines[-1][: col2 - (&selection == 'inclusive' ? 1 : 2)]
+  let lines[0] = lines[0][col1 - 1:]
+  return join(lines, "\n")
 endfunction
 
 ""
@@ -135,6 +149,13 @@ function! do#MarkProcessWindowAsClosed()
     python do_async.mark_process_window_as_closed()
 endfunction
 
+function! do#ShowProcessFromCommandWindow()
+    python do_async.show_process_from_command_window()
+endfunction
+
+function! do#nop()
+endfunction
+
 ""
 " Assign auto commands that are used after a command has started execution.
 "
@@ -145,11 +166,13 @@ endfunction
 " Autocommands are added in a group, for easy removal.
 "
 function! do#AssignAutocommands()
+    execute "nnoremap <silent> " . do#get("do_refresh_key") . " :call do#nop()<CR>"
+    execute "inoremap <silent> " . do#get("do_refresh_key") . ' <C-O>:call do#nop()<CR>'
     augroup vim_do
         au CursorHold * python do_async.check()
-        "au CursorHoldI * python do_async.check()
-        "au CursorMoved * python do_async.check()
-        "au CursorMovedI * python do_async.check()
+        au CursorHoldI * python do_async.check()
+        au CursorMoved * python do_async.check()
+        au CursorMovedI * python do_async.check()
         au FocusGained * python do_async.check()
         au FocusLost * python do_async.check()
     augroup END
@@ -177,3 +200,7 @@ function! Strip(input_string)
     return substitute(a:input_string, '^\s*\(.\{-}\)\s*$', '\1', '')
 endfunction
 
+
+" Initialize do
+python do_async = Do()
+autocmd VimLeavePre * python do_async.stop()

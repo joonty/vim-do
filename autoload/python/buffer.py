@@ -10,10 +10,7 @@ class VimBuffer:
     def line(self, number):
         return self._buffer[number]
 
-    def write(self, msg, return_focus, after_callback, overwrite):
-        if return_focus:
-            prev_win = vim.eval('winnr()')
-
+    def write(self, msg, overwrite):
         last_line = len(self._buffer)
 
         if isinstance(msg, list):
@@ -28,13 +25,10 @@ class VimBuffer:
             self._buffer[:] = to_write
         else:
             self._buffer.append(to_write)
-            after_callback()
-            if return_focus:
-                vim.command('%swincmd W' % prev_win)
 
         return (last_line, last_line + len(to_write))
 
-    def overwrite(self, msg, lineno, allowEmpty, after_callback):
+    def overwrite(self, msg, lineno, allowEmpty):
         """ insert into current position in buffer"""
         if not msg and allowEmpty == False:
             return
@@ -47,7 +41,6 @@ class VimBuffer:
         lstart = lineno - 1
         lend = lstart + len(to_write)
         self._buffer[lstart:lend] = to_write
-        after_callback()
 
         return (lstart, lend)
 
@@ -84,7 +77,7 @@ class HiddenBuffer:
     def replace(self, contents):
         self._buffer[:] = contents[:]
 
-    def write(self, msg, return_focus, after, overwrite):
+    def write(self, msg, overwrite):
         last_line = len(self._buffer)
 
         if isinstance(msg, list):
@@ -104,7 +97,7 @@ class HiddenBuffer:
 
         return (last_line, last_line + len(to_write))
 
-    def overwrite(self, msg, lineno, allowEmpty, after_callback):
+    def overwrite(self, msg, lineno, allowEmpty):
         """ insert into current position in buffer"""
         if not msg and allowEmpty == False:
             return

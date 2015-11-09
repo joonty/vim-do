@@ -7,16 +7,26 @@ class ProcessRenderer:
         self.__command_window = window.CommandWindow()
         self.__command_window.write(CommandWindowHeaderFormat())
         self.__command_window_line_maps = {}
+        self.__command_window_line_map_order = []
 
         self.__process_window = window.ProcessWindow()
         self.__process_window_output_line = 0
         self.__process_window_process = None
+
+    def get_pid_by_line_number(self, lineno):
+        try:
+            # Account for header
+            print lineno
+            return self.__command_window_line_map_order[lineno - 4]
+        except IndexError:
+            return None
 
     def add_process(self, process):
         self.show_process(process)
 
         (first_line, _) = self.__command_window.write(CommandWindowProcessFormat(process))
         self.__command_window_line_maps[process.get_pid()] = first_line + 1
+        self.__command_window_line_map_order.append(process.get_pid())
 
     def show_process(self, process):
         logger.log("showing process output: %s" % process.get_pid())
@@ -39,12 +49,12 @@ class ProcessRenderer:
                 True)
 
         if self.__process_window_process == process:
-            logger.log("updating process output: %s" % process.get_pid())
+            logger.log("updating process output: %s, %s"
+                    %(process.get_pid(),process.get_status()))
             self.__write_output(process.output().from_line(self.__process_window_output_line))
 
-            if process.has_finished():
-                self.__process_window.overwrite(ProcessWindowHeaderFormat(process), 1,
-                        True)
+            self.__process_window.overwrite(ProcessWindowHeaderFormat(process),
+                    1, True)
 
 
     def toggle_command_window(self):
@@ -57,7 +67,7 @@ class ProcessRenderer:
         self.__process_window.destroy()
 
     def __process_window_open_cmd(self):
-        cmd = vim.eval('do#get("do_new_buffer_prefix")')
+        cmd = vim.eval('do#get("do_new_buffer_command_prefix")')
         cmd += " %snew" % vim.eval('do#get("do_new_buffer_size")')
         return cmd
 
@@ -65,8 +75,6 @@ class ProcessRenderer:
 class ProcessWindowHeaderFormat:
     def __init__(self, process):
         self.__process = process
-        self.__open_cmd = vim.eval('do#get("do_new_buffer_prefix")')
-        self.__open_cmd += " %snew" % vim.eval('do#get("do_new_buffer_size")')
 
     def __str__(self):
         values = (self.__process.get_command(),
@@ -92,7 +100,9 @@ class ProcessWindowHeaderFormat:
             unit = "ms"
         return "{:,}".format(time) + unit
 
+
 class CommandWindowHeaderFormat:
+
     def __str__(self):
         return '''
 =============================================================================

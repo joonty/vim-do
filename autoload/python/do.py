@@ -11,6 +11,7 @@ import vim
 import time
 import string
 import logger
+import signal
 
 class Do:
     def __init__(self):
@@ -18,6 +19,11 @@ class Do:
         self.__processes = ProcessCollection()
         self.__process_renderer = rendering.ProcessRenderer()
         self.__au_assigned = False
+        self.__last_check = time.time() * 1000
+        self.__refresh_key = vim.eval('do#get("do_refresh_key")')
+        self.__check_interval = int(vim.eval("do#get('do_check_interval')"))
+        if self.__check_interval < 500:
+            self.__check_interval = 500
 
     def execute(self, cmd):
         pid = self.__process_pool.execute(cmd)
@@ -40,7 +46,19 @@ class Do:
     def mark_process_window_as_closed(self):
         self.__process_renderer.destroy_process_window()
 
+    def show_process_from_command_window(self):
+        lineno = vim.current.window.cursor[0]
+        pid = self.__process_renderer.get_pid_by_line_number(lineno)
+        process = self.__processes.get_by_pid(pid)
+        if process is not None:
+            self.__process_renderer.show_process(process)
+
     def check(self):
+        if (1000 * time.time()) - self.__last_check > self.__check_interval:
+            self.check_now()
+            self.__last_check = time.time() * 1000
+
+    def check_now(self):
         logger.log("Checking background threads output")
         outputs = self.__process_pool.get_outputs()
         changed_processes = set()
@@ -58,11 +76,16 @@ class Do:
         if self.__processes.all_finished():
             logger.log("All background threads completed")
             self.__unassign_autocommands()
+        else:
+            s = 'feedkeys("\\%s")' % self.__refresh_key
+            logger.log(s)
+            vim.eval(s)
 
     def enable_logger(self, path):
         logger.Log.set_logger(logger.FileLogger(logger.Logger.DEBUG, path))
 
     def stop(self):
+        self.__processes.kill_all()
         self.__process_pool.stop()
 
     def __assign_autocommands(self):
@@ -77,6 +100,9 @@ class Do:
         vim.command('call do#UnassignAutocommands()')
         self.__au_assigned = False
 
+    def __check_interval(self):
+        return vim.eval("g:do_check_interval")
+
 class ProcessCollection:
     def __init__(self):
         self.__processes = {}
@@ -86,17 +112,27 @@ class ProcessCollection:
         self.__processes[pid] = process
         return process
 
+    def get_by_pid(self, pid):
+        return next((p for p in self.__processes.values() if p.get_pid() == pid), None)
+
     def update(self, pid, exit_status, stdout, stderr):
         process = self.__processes[pid]
         if process is not None:
-            if exit_status:
+            if exit_status is not None:
                 process.mark_as_complete(exit_status)
             if stdout or stderr:
                 process.output().append(stdout, stderr)
         return process
 
     def all_finished(self):
-        return len(filter(lambda p: p.is_running(), self.__processes.values())) == 0
+        return len(self.get_running()) == 0
+
+    def get_running(self):
+        return filter(lambda p: p.is_running(), self.__processes.values())
+
+    def kill_all(self):
+        for process in self.get_running():
+            process.kill()
 
 class Process:
     def __init__(self, command, pid):
@@ -140,6 +176,12 @@ class Process:
 
     def name(self):
         return "DoOutput(%s)" % self.__pid
+
+    def kill(self):
+        try:
+            os.kill(int(self.__pid), signal.SIGTERM)
+        except:
+            pass
 
 
 class Output:

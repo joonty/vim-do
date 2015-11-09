@@ -7,6 +7,7 @@ class Window():
     def __init__(self):
         self._buffer = HiddenBuffer()
         self.is_open = False
+        self._buffernr = None
 
     def toggle(self, open_cmd):
         if self.is_open:
@@ -16,6 +17,11 @@ class Window():
 
     def mark_as_closed(self):
         self.destroy()
+
+    def getbuffernr(self):
+        if self._buffernr is None:
+            self._buffernr = int(vim.eval("buffer_number('%s')" % self.name))
+        return self._buffernr
 
     def getwinnr(self):
         return int(vim.eval("bufwinnr('%s')" % self.name))
@@ -29,13 +35,11 @@ class Window():
             height = 1
         self.command('set winheight=%i' % height)
 
-    def write(self, msg, return_focus = True, after = "normal G", overwrite = False):
-        return self._buffer.write(msg, return_focus,\
-                lambda: self.command(after), overwrite)
+    def write(self, msg, overwrite = False):
+        return self._buffer.write(msg, overwrite)
 
     def overwrite(self, msg, lineno, allowEmpty = False):
-        return self._buffer.overwrite(msg, lineno, allowEmpty,\
-                lambda: self.command(lineno))
+        return self._buffer.overwrite(msg, lineno, allowEmpty)
 
     def delete(self, start_line, end_line = None):
         self._buffer.delete(start_line, end_line)
@@ -51,7 +55,7 @@ class Window():
         vim.command("setlocal buftype=nofile modifiable "+ \
                 "winfixheight winfixwidth")
         existing_content = self._buffer.contents()
-        self._buffer = VimBuffer(vim.current.buffer)
+        self._buffer = VimBuffer(vim.buffers[self.getbuffernr()])
         self._buffer.replace(existing_content)
         self.is_open = True
         self.creation_count += 1
@@ -64,6 +68,7 @@ class Window():
             return
         self.is_open = False
         self._buffer = HiddenBuffer(self._buffer.contents())
+        self._buffernr = None
         if wipeout and int(vim.eval('buffer_exists("%s")' % self.name)) == 1:
             vim.command('bwipeout %s' % self.name)
 
@@ -102,3 +107,5 @@ class CommandWindow(Window):
             vim.command(cmd)
 
         self.command('setlocal syntax=do_command_window')
+        self.command('nnoremap <buffer> <cr> '+\
+                ':call do#ShowProcessFromCommandWindow()<CR>')
