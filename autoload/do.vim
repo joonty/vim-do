@@ -9,11 +9,11 @@ let s:existing_update_time = &updatetime
 let s:previous_command = ""
 
 " Configuration vars
-let s:do_update_time = 1000
 let s:do_check_interval = 1000
 let s:do_new_buffer_command_prefix = ""
 let s:do_new_buffer_size = ""
 let s:do_refresh_key = "<C-B>"
+let s:do_update_time = 500
 
 " Load Python script
 if filereadable($VIMRUNTIME."/plugin/python/do.py")
