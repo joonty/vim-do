@@ -2,7 +2,7 @@
 
 ## Run asynchronous shell commands and display the output
 
-![animation showing vim-do in action](http://www.mediafire.com/view/1o4gb6rpgde2ycy/vim-do.gif)
+![animation showing vim-do in action](http://www.mediafire.com/convkey/7734/1o4gb6rpgde2ycy9g.jpg?size_id=5)
 
 The aim of this plugin is to provide a quick and simple way of running shell commands in the background, and displaying the results (output, exit status, etc) in a Vim buffer as the process is running. That means you can run several commands, carry on working in Vim, and swap between the processes at will or just keep them running hidden in the background.
 
@@ -26,7 +26,7 @@ But don't worry, it's asynchronous! A new buffer will pop up while it's running 
 
 You can see running and finished processes with the `:Doing` or `:Done` commands (different names for the same thing). It looks something like this:
 
-![the command window](http://www.mediafire.com/view/plvj08c83s030qj/vim-do-command-window.png)
+![the command window](http://www.mediafire.com/convkey/319f/plvj08c83s030qjzg.jpg)
 
 Pressing `<CR>` (the `Enter` key) on a line will open the process window which gives more detail and shows the output (standard out and standard error).
 
