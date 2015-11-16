@@ -112,47 +112,67 @@ _EOF_
     endif
 endfunction
 
+
+""
+" Execute a shell command asynchronously, from the current visually selected text.
+"
+" See do#Execute() for more information.
+"
 function! do#ExecuteSelection()
     let l:command = s:getVisualSelection()
     call do#Execute(l:command)
 endfunction
 
+""
+" Enable the file logger for debugging purposes.
+"
+" @param string file_path The path to the file to write log information
+"
 function! do#EnableLogger(file_path)
 python <<_EOF_
 do_async.enable_logger(vim.eval("a:file_path"))
 _EOF_
 endfunction
 
-" Thanks to http://stackoverflow.com/a/6271254/1087866
-function! s:getVisualSelection()
-  " Why is this not a built-in Vim script function?!
-  let [lnum1, col1] = getpos("'<")[1:2]
-  let [lnum2, col2] = getpos("'>")[1:2]
-  let lines = getline(lnum1, lnum2)
-  let lines[-1] = lines[-1][: col2 - (&selection == 'inclusive' ? 1 : 2)]
-  let lines[0] = lines[0][col1 - 1:]
-  return join(lines, "\n")
-endfunction
-
 ""
-" Show a window detailing the running and completed commands.
+" Show or hide the command window.
+"
+" The command window details currently running and finished processes.
 "
 function! do#ToggleCommandWindow()
     python do_async.toggle_command_window()
 endfunction
 
+""
+" A callback for when the command window is closed.
+"
+" Executed automatically via an autocommand.
+"
 function! do#MarkCommandWindowAsClosed()
     python do_async.mark_command_window_as_closed()
 endfunction
 
+""
+" A callback for when the process window is closed.
+"
+" Executed automatically via an autocommand.
+"
 function! do#MarkProcessWindowAsClosed()
     python do_async.mark_process_window_as_closed()
 endfunction
 
+""
+" Trigger selection of a process in the command window.
+"
 function! do#ShowProcessFromCommandWindow()
     python do_async.show_process_from_command_window()
 endfunction
 
+""
+" Do nothing.
+"
+" Used in do#AssignAutocommands()
+"
 function! do#nop()
 endfunction
 
@@ -200,6 +220,16 @@ function! Strip(input_string)
     return substitute(a:input_string, '^\s*\(.\{-}\)\s*$', '\1', '')
 endfunction
 
+" Thanks to http://stackoverflow.com/a/6271254/1087866
+function! s:getVisualSelection()
+  " Why is this not a built-in Vim script function?!
+  let [lnum1, col1] = getpos("'<")[1:2]
+  let [lnum2, col2] = getpos("'>")[1:2]
+  let lines = getline(lnum1, lnum2)
+  let lines[-1] = lines[-1][: col2 - (&selection == 'inclusive' ? 1 : 2)]
+  let lines[0] = lines[0][col1 - 1:]
+  return join(lines, "\n")
+endfunction
 
 " Initialize do
 python do_async = Do()
