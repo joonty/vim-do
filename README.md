@@ -122,6 +122,7 @@ Here are the available configuration options:
 If you change an option after vim-do has loaded you'll need to tell it to reload the options. You can do this with the function `do#ReloadOptions()`, i.e.:
 
 ```vim
+:let g:do_auto_show_process_window = 0
 :call do#ReloadOptions()
 ```
 
