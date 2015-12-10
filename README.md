@@ -88,7 +88,7 @@ If you want to run a command selected under the cursor (in visual select mode), 
 Clone or download a tarball of the plugin and move its content in your
 `~/.vim/` directory.
 
-Your `~/.vim/plugin/` directory should now contain vdebug.vim and a directory
+Your `~/.vim/plugin/` directory should now contain do.vim, and your `~/.vim/autoload` directory should contain do.vim and a directory
 called "python".
 
 ### Using git and Pathogen
