@@ -22,6 +22,25 @@ Oops, that last command is gonna take a while...
 
 But don't worry, it's asynchronous! A new buffer will pop up while it's running and show the output. If you close it, it will keep running until the command finishes naturally. You can run as many commands at the same time as your computer can handle.
 
+### Overview of all commands
+
+```vim
+" Execute a command in the background
+:Do <command>
+
+" Execute a command in the background without opening the process output window
+:DoQuietly <command>
+
+" Show all processes (running and finished)
+:Doing
+
+" Alias for :Doing
+:Done
+
+" Execute the command under visual selection
+:'<,'>DoThis
+```
+
 ### View running/finished processes and swap between them
 
 You can see running and finished processes with the `:Doing` or `:Done` commands (different names for the same thing). It looks something like this:
@@ -37,6 +56,12 @@ While a process is running and the process window is open, the output from the p
 ### Re-run the last command
 
 After running any command, run it again with the command `:DoAgain`.
+
+### Run a command without the process window popping up
+
+Execute a command with the `:DoQuietly` vim command instead of `:Do`, and it won't open the process window. Alternatively, you can turn it off permanently by setting `g:do_auto_show_process_window = 0`.
+
+You can still view information and output for a process by opening the command window (`:Doing` or `:Done`) and selecting the process.
 
 ### Replacement for :make
 
@@ -93,6 +118,12 @@ Here are the available configuration options:
 * `g:do_new_buffer_size`: set the size of the process window, no default.
 * `g:do_refresh_key`: this should be set to a key combination _that you don't want to use_, as it's used to trigger Vim's autocommands, but shouldn't actually do anything. By default it's set to `<C-B>` (Control-B), which may conflict with other plugins. If it does, change it to another key combination that you don't ever use.
 * `g:do_update_time`: used to change vim's `updatetime` setting, which determines how quickly vim-do will check and update running processes after you stop typing any keys, in milliseconds (default 500).
+
+If you change an option after vim-do has loaded you'll need to tell it to reload the options. You can do this with the function `do#ReloadOptions()`, i.e.:
+
+```vim
+:call do#ReloadOptions()
+```
 
 ## How does it work?
 
