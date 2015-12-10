@@ -46,7 +46,7 @@ class Do:
         try:
             self.__process_renderer.destroy_process_window()
         except Exception, e:
-            print "Error: %s" % str(e)
+            log("Error: %s" % str(e))
 
     def show_process_from_command_window(self):
         lineno = vim.current.window.cursor[0]
@@ -56,6 +56,7 @@ class Do:
             self.__process_renderer.show_process(process)
 
     def check(self):
+        log("check()")
         if (1000 * time.time()) - self.__last_check > Options.check_interval():
             self.check_now()
             self.__last_check = time.time() * 1000
