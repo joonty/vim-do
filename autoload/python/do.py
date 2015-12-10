@@ -10,8 +10,8 @@ import window
 import vim
 import time
 import string
-import logger
 import signal
+from utils import *
 
 class Do:
     def __init__(self):
@@ -20,22 +20,21 @@ class Do:
         self.__process_renderer = rendering.ProcessRenderer()
         self.__au_assigned = False
         self.__last_check = time.time() * 1000
-        self.__refresh_key = vim.eval('do#get("do_refresh_key")')
-        self.__check_interval = int(vim.eval("do#get('do_check_interval')"))
-        if self.__check_interval < 500:
-            self.__check_interval = 500
 
-    def execute(self, cmd):
+    def __del__(self):
+        self.stop()
+
+    def execute(self, cmd, quiet = False):
         pid = self.__process_pool.execute(cmd)
-        logger.log("Started command with pid %i: %s" %(pid, cmd))
+        log("Started command with pid %i: %s" %(pid, cmd))
         process = self.__processes.add(cmd, pid)
-        self.__process_renderer.add_process(process)
+        self.__process_renderer.add_process(process, quiet)
 
         self.__assign_autocommands()
         self.check()
 
-    def __del__(self):
-        self.stop()
+    def reload_options(self):
+        Options.reload()
 
     def toggle_command_window(self):
         self.__process_renderer.toggle_command_window()
@@ -44,7 +43,10 @@ class Do:
         self.__process_renderer.destroy_command_window()
 
     def mark_process_window_as_closed(self):
-        self.__process_renderer.destroy_process_window()
+        try:
+            self.__process_renderer.destroy_process_window()
+        except Exception, e:
+            print "Error: %s" % str(e)
 
     def show_process_from_command_window(self):
         lineno = vim.current.window.cursor[0]
@@ -54,18 +56,18 @@ class Do:
             self.__process_renderer.show_process(process)
 
     def check(self):
-        if (1000 * time.time()) - self.__last_check > self.__check_interval:
+        if (1000 * time.time()) - self.__last_check > Options.check_interval():
             self.check_now()
             self.__last_check = time.time() * 1000
 
     def check_now(self):
-        logger.log("Checking background threads output")
+        log("Checking background threads output")
         outputs = self.__process_pool.get_outputs()
         changed_processes = set()
         for output in outputs:
             if output[1] is not None:
-                logger.log("Process %s has finished with exit status %s"
-                        %(output[0], output[1]))
+                log("Process %s has finished with exit status %s"
+                    %(output[0], output[1]))
             process = self.__processes.update(*output)
             changed_processes.add(process)
 
@@ -74,15 +76,15 @@ class Do:
 
         self.__process_pool.cleanup()
         if self.__processes.all_finished():
-            logger.log("All background threads completed")
+            log("All background threads completed")
             self.__unassign_autocommands()
         else:
-            s = 'feedkeys("\\%s")' % self.__refresh_key
-            logger.log(s)
+            s = 'feedkeys("\\%s")' % Options.refresh_key()
+            log(s)
             vim.eval(s)
 
     def enable_logger(self, path):
-        logger.Log.set_logger(logger.FileLogger(logger.Logger.DEBUG, path))
+        Log.set_logger(FileLogger(Logger.DEBUG, path))
 
     def stop(self):
         self.__processes.kill_all()
@@ -91,17 +93,15 @@ class Do:
     def __assign_autocommands(self):
         if self.__au_assigned:
             return
-        logger.log("Assigning autocommands for background checking")
+        log("Assigning autocommands for background checking")
         vim.command('call do#AssignAutocommands()')
         self.__au_assigned = True
 
     def __unassign_autocommands(self):
-        logger.log("Unassigning autocommands")
+        log("Unassigning autocommands")
         vim.command('call do#UnassignAutocommands()')
         self.__au_assigned = False
 
-    def __check_interval(self):
-        return vim.eval("g:do_check_interval")
 
 class ProcessCollection:
     def __init__(self):
@@ -202,4 +202,3 @@ class Output:
             self.__output.append(stdout)
         if stderr is not None:
             self.__output.append("E> %s" % stderr)
-

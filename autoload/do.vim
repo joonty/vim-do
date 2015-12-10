@@ -10,10 +10,10 @@ let s:previous_command = ""
 
 " Configuration vars
 let s:do_check_interval = 500
-let s:do_new_buffer_command_prefix = ""
-let s:do_new_buffer_size = ""
+let s:do_new_process_window_command = "new"
 let s:do_refresh_key = "<C-L>"
 let s:do_update_time = 500
+let s:do_auto_show_process_window = 1
 
 " Load Python script
 if filereadable($VIMRUNTIME."/plugin/python/do.py")
@@ -84,6 +84,16 @@ function! do#ExecuteAgain()
 endfunction
 
 ""
+" Reload all do options set by `g:do_...`
+"
+" Do will cache option values for performance reasons, but calling this
+" function will reload them.
+"
+function! do#ReloadOptions()
+    python do_async.reload_options()
+endfunction
+
+""
 " Execute a shell command asynchronously.
 "
 " If a command string is supplied, this will be executed. If no argument (or
@@ -96,7 +106,12 @@ endfunction
 "
 " @param string command (optional) The command to run, defaults to &makeprg
 "
-function! do#Execute(command)
+function! do#Execute(command, ...)
+    if a:0 > 0
+        let l:quiet = a:1
+    else
+        let l:quiet = 0
+    end
     let l:command = a:command
     if empty(l:command)
         let l:command = &makeprg
@@ -107,7 +122,7 @@ function! do#Execute(command)
     else
         let s:previous_command = l:command
 python <<_EOF_
-do_async.execute(vim.eval("l:command"))
+do_async.execute(vim.eval("l:command"), int(vim.eval("l:quiet")) == 1)
 _EOF_
     endif
 endfunction

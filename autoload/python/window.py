@@ -1,4 +1,5 @@
 from buffer import *
+from utils import log
 
 class Window():
     name = "WINDOW"
@@ -66,11 +67,13 @@ class Window():
         """ destroy window """
         if not self.is_open:
             return
+        self.on_destroy()
         self.is_open = False
         self._buffer = HiddenBuffer(self._buffer.contents())
         self._buffernr = None
         if wipeout and int(vim.eval('buffer_exists("%s")' % self.name)) == 1:
-            vim.command('bwipeout %s' % self.name)
+            vim.command('silent! bwipeout %s' % self.name)
+            log("Wiped out buffer %s" % self.name)
 
     def clean(self):
         """ clean all data in buffer """
@@ -86,6 +89,9 @@ class Window():
     def on_create(self):
         pass
 
+    def on_destroy(self):
+        pass
+
 class ProcessWindow(Window):
     name = "DoProcess"
 
@@ -97,6 +103,11 @@ class ProcessWindow(Window):
 
         self.command("setlocal syntax=do_output buftype=nofile modifiable "+ \
                 "winfixheight winfixwidth")
+
+    def on_destroy(self):
+        cmd = 'silent! au BufWinLeave %s' % self.name
+        vim.command(cmd)
+
 
 class CommandWindow(Window):
     name = "DoCommands"

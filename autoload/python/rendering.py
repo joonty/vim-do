@@ -1,6 +1,5 @@
-import vim
 import window
-import logger
+from utils import Options, log
 
 class ProcessRenderer:
     def __init__(self):
@@ -16,25 +15,25 @@ class ProcessRenderer:
     def get_pid_by_line_number(self, lineno):
         try:
             # Account for header
-            print lineno
             return self.__command_window_line_map_order[lineno - 4]
         except IndexError:
             return None
 
-    def add_process(self, process):
-        self.show_process(process)
+    def add_process(self, process, quiet):
+        if not quiet and Options.auto_show_process_window():
+            self.show_process(process)
 
         (first_line, _) = self.__command_window.write(CommandWindowProcessFormat(process))
         self.__command_window_line_maps[process.get_pid()] = first_line + 1
         self.__command_window_line_map_order.append(process.get_pid())
 
     def show_process(self, process):
-        logger.log("showing process output: %s" % process.get_pid())
+        log("showing process output: %s" % process.get_pid())
         self.__process_window_process = process
 
         self.__process_window.clean()
         self.__process_window_output_line = 0
-        self.__process_window.create(self.__process_window_open_cmd())
+        self.__process_window.create(Options.new_process_window_command())
 
         self.__process_window.write(ProcessWindowHeaderFormat(process))
         self.__write_output(process.output().all())
@@ -49,7 +48,7 @@ class ProcessRenderer:
                 True)
 
         if self.__process_window_process == process:
-            logger.log("updating process output: %s, %s"
+            log("updating process output: %s, %s"
                     %(process.get_pid(),process.get_status()))
             self.__write_output(process.output().from_line(self.__process_window_output_line))
 
@@ -65,11 +64,6 @@ class ProcessRenderer:
 
     def destroy_process_window(self):
         self.__process_window.destroy()
-
-    def __process_window_open_cmd(self):
-        cmd = vim.eval('do#get("do_new_buffer_command_prefix")')
-        cmd += " %snew" % vim.eval('do#get("do_new_buffer_size")')
-        return cmd
 
 
 class ProcessWindowHeaderFormat:

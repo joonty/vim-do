@@ -1,6 +1,52 @@
 import time
 import sys
 import os
+import vim
+
+class Options:
+    instance = None
+
+    def __init__(self):
+        self.refresh_key = vim.eval('do#get("do_refresh_key")')
+        self.update_time = int(vim.eval("do#get('do_update_time')"))
+        self.new_process_window_command = vim.eval('do#get("do_new_process_window_command")')
+        self.auto_show_process_window = bool(int(vim.eval('do#get("do_auto_show_process_window")')))
+        self.check_interval = int(vim.eval("do#get('do_check_interval')"))
+
+        if self.check_interval < 500:
+            self.check_interval = 500
+
+    @classmethod
+    def reload(cls):
+        cls.instance = Options()
+
+    @classmethod
+    def inst(cls):
+        """Get the Options instance.
+        """
+        if cls.instance is None:
+            cls.reload()
+        return cls.instance
+
+    @classmethod
+    def refresh_key(cls):
+        return cls.inst().refresh_key
+
+    @classmethod
+    def check_interval(cls):
+        return cls.inst().check_interval
+
+    @classmethod
+    def update_time(cls):
+        return cls.inst().update_time
+
+    @classmethod
+    def new_process_window_command(cls):
+        return cls.inst().new_process_window_command
+
+    @classmethod
+    def auto_show_process_window(cls):
+        return cls.inst().auto_show_process_window
 
 class Logger:
     """ Abstract class for all logger implementations.

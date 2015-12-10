@@ -19,6 +19,7 @@ if !has("python")
 endif
 
 command! -nargs=* Do call do#Execute(<q-args>)
+command! -nargs=* DoQuietly call do#Execute(<q-args>, 1)
 command! -range DoThis call do#ExecuteSelection()
 command! DoAgain call do#ExecuteAgain()
 command! Doing call do#ToggleCommandWindow()
